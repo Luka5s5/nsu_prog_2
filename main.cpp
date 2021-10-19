@@ -1,10 +1,52 @@
 #include <iostream>
+#include <vector>
 
 using namespace std;
+
+class Matrix;
+
+class Part
+{
+private:
+    friend class Matrix;
+    bool type;
+    Matrix *m;
+    int t;
+
+public:
+    Part(){};
+    Part(bool type, int ind, Matrix *m)
+    {
+        this->type = type;
+        this->m = m;
+        this->t = ind;
+    }
+    int &operator[](int _x);
+    ~Part()
+    {
+        // for (int i = 0; i <)
+    }
+};
+
+struct PartNode
+{
+    PartNode *next, *prev;
+    Part *p;
+    PartNode(Part *p)
+    {
+        this->p = p;
+        next = prev = nullptr;
+    }
+};
 
 class Matrix
 {
 private:
+    friend class Part;
+
+    // PartNode *list;
+    // int parts_size;
+
     int **a;
     int n;
     void init(int _n)
@@ -13,6 +55,8 @@ private:
         a = new int *[n];
         for (int i = 0; i < n; i++)
             a[i] = new int[n]();
+        // this->parts_size = 0;
+        // list = nullptr;
     }
 
     void copy(const Matrix &that)
@@ -29,14 +73,12 @@ private:
     }
 
 public:
-    int get_size() const { return n; }
-    void set_size()
+    void print_self_address()
     {
-        // Оказывается в C++ нет реаллока... А векторы юзать нельзя.....
-        // https://www.stroustrup.com/bs_faq2.html#renew
-        return;
-    };
+        cout << a << endl;
+    }
 
+    int get_size() const { return n; }
     Matrix()
     {
         n = 0;
@@ -65,7 +107,7 @@ public:
         Matrix ans(n - 1);
         for (int i = 0; i < n - 1; i++)
             for (int j = 0; j < n - 1; j++)
-                ans[i][j] = get_ij(i + (i >= r), j + (j >= c)); // Круто? По моему круто...
+                ans.set_ij(i, j, get_ij(i + (i >= r), j + (j >= c))); // Круто? По моему круто...
         return ans;
     }
     Matrix operator+(const Matrix &b) const
@@ -148,16 +190,26 @@ public:
         }
         return ans;
     }
-    int *operator[](const int &ind) const
+    Part operator[](const int &ind)
     {
         if (ind >= n or ind < 0)
         {
             cout << "Shitty index in int *operator[](const int &ind) const" << endl;
             throw;
         }
-        return a[ind];
+        return Part(0, ind, this);
     }
-    int get_ij(int i, int j) const
+    Part operator()(const int &ind)
+    {
+        if (ind >= n or ind < 0)
+        {
+            cout << "Shitty index in int *operator[](const int &ind) const" << endl;
+            throw;
+        }
+        return Part(1, ind, this);
+    }
+
+    int &get_ij(int i, int j) const
     {
         if (i < n && j < n && i >= 0 && j >= 0)
             return a[i][j];
@@ -231,6 +283,23 @@ public:
     }
 };
 
+int &Part::operator[](int _x)
+{
+    int x = t, y = _x;
+    if (type == 1)
+        swap(x, y);
+    int res = 0;
+    try
+    {
+        return (m->get_ij(x, y));
+    }
+    catch (exception &)
+    {
+        cout << "Матрица умерла((((\n";
+        return res;
+    }
+}
+
 int main()
 {
     int n;
@@ -241,7 +310,20 @@ int main()
     for (int i = 0; i < n; i++)
         arr[i] = k;
     Matrix A(n), B(n), C(n), K(n, arr), D(n);
-    cin >> A >> B >> C >> D;
-    // cout << A << B << A + B;
-    cout << ((A + B * (~C) + K) * (~D));
+    // cin >> A >> B >> C >> D;
+    // // cout << A << B << A + B;
+    // cout << ((A + B * (~C) + K) * (~D));
+    cin >> A;
+    vector<Part> a(n);
+    for (int i = 0; i < n; i++)
+    {
+        // Matrix B = A;
+        a[i] = A(i);
+        cout << A(i)[i] << " " << a[i][i] << endl;
+    }
+    for (int i = 0; i < n; i++)
+    {
+        cout << (a[i][i] += 2) << "\n";
+    }
+    cout << A;
 }
