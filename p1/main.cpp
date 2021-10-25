@@ -200,12 +200,12 @@ public:
         Matrix ans(n), tb = ~b;
         for (int r1 = 0; r1 < n; r1++)
         {
-            ans.set_ij(r1, r1, 0);
+            ans.a[r1][r1]= 0;
             for (int r2 = 0; r2 < n; r2++)
             {
                 for (int i = 0; i < n; i++)
                 {
-                    ans.set_ij(r1, r2, ans.get_ij(r1, r2) + tb.get_ij(r2, i) * get_ij(r1, i));
+                    ans.a[r1][r2]=ans.a[r1][r2]+tb.a[r2][i]*a[r1][i];
                 }
             }
         }
