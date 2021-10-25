@@ -4,27 +4,23 @@
 using namespace std;
 
 class Matrix;
+class Part;
+struct PartNode;
 
 class Part
 {
 private:
     friend class Matrix;
-    bool type;
+    bool type, dead;
     Matrix *m;
     int t;
 
 public:
-    Part(bool type, int ind, Matrix *m)
-    {
-        this->type = type;
-        this->m = m;
-        this->t = ind;
-    }
+    Part(bool type, int ind, Matrix *m);
     int &operator[](int _x);
-    ~Part()
-    {
-        // for (int i = 0; i <)
-    }
+    ~Part();
+    Part(){};
+    Part &operator=(const Part &that);
 };
 
 struct PartNode
@@ -44,15 +40,20 @@ private:
     friend class Part;
     int **a;
     int n;
+
+    PartNode *list;
+
     void init(int _n)
     {
+        list = nullptr;
+
         n = _n;
         a = new int *[n];
         for (int i = 0; i < n; i++)
             a[i] = new int[n]();
     }
 
-    void copy(const Matrix &that)
+    void copy_init(const Matrix &that)
     {
         n = that.get_size();
         init(n);
@@ -65,6 +66,35 @@ private:
         }
     }
 
+    void add_part(Part *p)
+    {
+        if (list == nullptr)
+        {
+            list = new PartNode(p);
+            return;
+        }
+        list->prev = new PartNode(p);
+        list->prev->next = list;
+        list = list->prev;
+    }
+    void remove_part(Part *p)
+    {
+        for (PartNode *now = list; now != nullptr; now = now->next)
+        {
+            if (now->p == p)
+            {
+                if (now->next)
+                    now->next->prev = now->prev;
+                if (now->prev)
+                    now->prev->next = now->next;
+                if (list == now)
+                    list = now->next;
+                delete now;
+                break;
+            }
+        }
+    }
+
 public:
     void print_self_address()
     {
@@ -72,11 +102,7 @@ public:
     }
 
     int get_size() const { return n; }
-    Matrix()
-    {
-        n = 0;
-        a = nullptr;
-    }
+    Matrix() : n(0), a(nullptr) {}
     Matrix(int _n)
     {
         init(_n);
@@ -91,7 +117,7 @@ public:
     }
     Matrix(const Matrix &orig)
     {
-        copy(orig);
+        copy_init(orig);
     }
     Matrix operator()(int r, int c) const
     {
@@ -100,20 +126,20 @@ public:
         Matrix ans(n - 1);
         for (int i = 0; i < n - 1; i++)
             for (int j = 0; j < n - 1; j++)
-                ans.set_ij(i, j, get_ij(i + (i >= r), j + (j >= c))); // Круто? По моему круто...
+                ans.a[i][j] = a[i + (i >= r)][j + (j >= c)];
         return ans;
     }
     Matrix operator+(const Matrix &b) const
     {
         Matrix ans(n);
-        if (n != b.get_size())
+        if (n != b.n)
             throw;
         for (int i = 0; i < n; i++)
         {
-            ans.set_ij(i, i, 0);
+            ans.a[i][i]= 0;
             for (int j = 0; j < n; j++)
             {
-                ans.set_ij(i, j, b.get_ij(i, j) + get_ij(i, j));
+                ans.a[i][j]=b.a[i][j] + a[i][j];
             }
         }
         return ans;
@@ -125,9 +151,10 @@ public:
             throw;
         for (int i = 0; i < n; i++)
         {
+            ans.a[i][i]=0;
             for (int j = 0; j < n; j++)
             {
-                ans.set_ij(i, j, b.get_ij(i, j) - get_ij(i, j) - (i == j));
+                ans.a[i][j]=b.a[i][j] - a[i][j];
             }
         }
         return ans;
@@ -139,15 +166,16 @@ public:
         for (int i = 0; i < n; i++)
             delete[] a[i];
         delete[] a;
-        copy(that);
+        copy_init(that);
     }
     bool operator==(const Matrix &b)
     {
         bool ans = true;
         for (int i = 0; i < n; i++)
             for (int j = 0; j < n; j++)
-                ans &= (get_ij(i, j) == b.get_ij(i, j));
-        return ans;
+                if (a[i][j] != b.a[i][ j])
+                    return false;
+        return true;
     }
     bool operator!=(const Matrix &b)
     {
@@ -159,9 +187,9 @@ public:
         for (int i = 0; i < n; i++)
             for (int j = i + 1; j < n; j++)
             {
-                int tmp = ans.get_ij(i, j);
-                ans.set_ij(i, j, ans.get_ij(j, i));
-                ans.set_ij(j, i, tmp);
+                int tmp = ans.a[i][j];
+                ans.a[i][j]=ans.a[j][i];
+                ans.a[j][i]=tmp;
             }
         return ans;
     }
@@ -199,7 +227,7 @@ public:
             cout << "Shitty index in int *operator[](const int &ind) const" << endl;
             throw;
         }
-        return Part(1, ind, this);
+        return Part(true, ind, this);
     }
 
     int &get_ij(int i, int j) const
@@ -224,6 +252,16 @@ public:
             delete[] a[i];
         }
         delete[] a;
+
+        PartNode *now = list;
+
+        while (now != nullptr)
+        {
+            now->p->dead = true;
+            PartNode *nxt = now->next;
+            delete now;
+            now = nxt;
+        }
     }
 
     friend ostream &operator<<(ostream &os, const Matrix &m)
@@ -258,16 +296,44 @@ int &Part::operator[](int _x)
     int x = t, y = _x;
     if (type == true)
         swap(x, y);
-    int res = 0;
-    try
+    if (dead)
     {
-        return (m->get_ij(x, y));
+        throw std::runtime_error("Матрица умерла :(((");
+        //        return x;
     }
-    catch (exception &)
+    else
     {
-        cout << "Матрица умерла((((\n";
-        return res;
+        return m->get_ij(x, y);
     }
+}
+
+Part::~Part()
+{
+    if (!dead)
+    {
+        this->m->remove_part(this);
+    }
+}
+
+Part::Part(bool type, int ind, Matrix *m)
+{
+    this->type = type;
+    this->m = m;
+    this->t = ind;
+    this->dead = 0;
+    this->m->add_part(this);
+}
+
+Part &Part::operator=(const Part &that)
+{
+    if (this == &that)
+        return *this;
+    type = that.type;
+    dead = that.dead;
+    m = that.m;
+    t = that.t;
+    that.m->add_part(this);
+    return *this;
 }
 
 int main()
@@ -280,5 +346,13 @@ int main()
     for (int i = 0; i < n; i++)
         arr[i] = k;
     Matrix A(n), B(n), C(n), K(n, arr), D(n);
-    
+    cin >> A;
+    cout << A * A;
+    Part prt;
+    for (int i = 1; i < 3; i++)
+    {
+        Matrix F = A * A;
+        prt = F(1);
+    }
+    cout << prt[0];
 }
