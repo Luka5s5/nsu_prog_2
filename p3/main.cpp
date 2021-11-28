@@ -3,354 +3,8 @@
 #include <string>
 #include <vector>
 using namespace std;
+#include "matrix.cpp"
 
-class Matrix;
-class Part;
-struct PartNode;
-
-class Part
-{
-private:
-    friend class Matrix;
-    bool type, dead;
-    Matrix *m;
-    int t;
-
-public:
-    Part(bool type, int ind, Matrix *m);
-    int &operator[](int _x);
-    ~Part();
-    Part(){};
-    Part &operator=(const Part &that);
-};
-
-struct PartNode
-{
-    PartNode *next, *prev;
-    Part *p;
-    PartNode(Part *p)
-    {
-        this->p = p;
-        next = prev = nullptr;
-    }
-};
-
-class Matrix
-{
-private:
-    friend class Part;
-    int **a;
-    int n;
-
-    PartNode *list;
-
-    void init(int _n)
-    {
-        list = nullptr;
-
-        n = _n;
-        a = new int *[n];
-        for (int i = 0; i < n; i++)
-            a[i] = new int[n]();
-    }
-
-    void copy_init(const Matrix &that)
-    {
-        n = that.get_size();
-        init(n);
-        for (int i = 0; i < n; i++)
-        {
-            for (int j = 0; j < n; j++)
-            {
-                set_ij(i, j, that.get_ij(i, j));
-            }
-        }
-    }
-
-    void add_part(Part *p)
-    {
-        if (list == nullptr)
-        {
-            list = new PartNode(p);
-            return;
-        }
-        list->prev = new PartNode(p);
-        list->prev->next = list;
-        list = list->prev;
-    }
-    void remove_part(Part *p)
-    {
-        for (PartNode *now = list; now != nullptr; now = now->next)
-        {
-            if (now->p == p)
-            {
-                if (now->next)
-                    now->next->prev = now->prev;
-                if (now->prev)
-                    now->prev->next = now->next;
-                if (list == now)
-                    list = now->next;
-                delete now;
-                break;
-            }
-        }
-    }
-
-public:
-    void print_self_address()
-    {
-        cout << a << endl;
-    }
-
-    int get_size() const { return n; }
-    Matrix() : n(0), a(nullptr) {}
-    Matrix(int _n)
-    {
-        init(_n);
-        for (int i = 0; i < n; i++)
-            a[i][i] = 1;
-    }
-    Matrix(int _n, int *_arr)
-    {
-        init(_n);
-        for (int i = 0; i < n; i++)
-            a[i][i] = _arr[i];
-    }
-    Matrix(const Matrix &orig)
-    {
-        copy_init(orig);
-    }
-    Matrix operator()(int r, int c) const
-    {
-        r--;
-        c--;
-        Matrix ans(n - 1);
-        for (int i = 0; i < n - 1; i++)
-            for (int j = 0; j < n - 1; j++)
-                ans.a[i][j] = a[i + (i >= r)][j + (j >= c)];
-        return ans;
-    }
-    Matrix operator+(const Matrix &b) const
-    {
-        Matrix ans(n);
-        if (n != b.n)
-            throw;
-        for (int i = 0; i < n; i++)
-        {
-            ans.a[i][i] = 0;
-            for (int j = 0; j < n; j++)
-            {
-                ans.a[i][j] = b.a[i][j] + a[i][j];
-            }
-        }
-        return ans;
-    }
-    Matrix operator-(const Matrix &b) const
-    {
-        Matrix ans(n);
-        if (n != b.get_size())
-            throw;
-        for (int i = 0; i < n; i++)
-        {
-            ans.a[i][i] = 0;
-            for (int j = 0; j < n; j++)
-            {
-                ans.a[i][j] = b.a[i][j] - a[i][j];
-            }
-        }
-        return ans;
-    }
-    Matrix &operator=(const Matrix &that)
-    {
-        if (this == &that)
-            return *this;
-        for (int i = 0; i < n; i++)
-            delete[] a[i];
-        delete[] a;
-        copy_init(that);
-    }
-    bool operator==(const Matrix &b)
-    {
-        bool ans = true;
-        for (int i = 0; i < n; i++)
-            for (int j = 0; j < n; j++)
-                if (a[i][j] != b.a[i][j])
-                    return false;
-        return true;
-    }
-    bool operator!=(const Matrix &b)
-    {
-        return !operator==(b);
-    }
-    Matrix operator~() const
-    {
-        Matrix ans = (*this);
-        for (int i = 0; i < n; i++)
-            for (int j = i + 1; j < n; j++)
-            {
-                int tmp = ans.a[i][j];
-                ans.a[i][j] = ans.a[j][i];
-                ans.a[j][i] = tmp;
-            }
-        return ans;
-    }
-    Matrix operator*(const Matrix &b) const
-    {
-        if (n != b.get_size())
-            throw;
-        Matrix ans(n), tb = ~b;
-        for (int r1 = 0; r1 < n; r1++)
-        {
-            ans.a[r1][r1] = 0;
-            for (int r2 = 0; r2 < n; r2++)
-            {
-                for (int i = 0; i < n; i++)
-                {
-                    ans.a[r1][r2] = ans.a[r1][r2] + tb.a[r2][i] * a[r1][i];
-                }
-            }
-        }
-        return ans;
-    }
-    operator size_t() const
-    {
-        size_t ans = 0;
-        int p = 31, mul = 1;
-        for (int i = 0; i < get_size(); i++)
-        {
-            for (int j = 0; j < get_size(); j++)
-            {
-                ans += mul * get_ij(i, j);
-                mul *= p;
-            }
-        }
-        return ans;
-    }
-
-    Part operator[](const int &ind)
-    {
-        if (ind >= n or ind < 0)
-        {
-            cout << "Shitty index in int *operator[](const int &ind) const" << endl;
-            throw;
-        }
-        return Part(0, ind, this);
-    }
-    Part operator()(const int &ind)
-    {
-        if (ind >= n or ind < 0)
-        {
-            cout << "Shitty index in int *operator[](const int &ind) const" << endl;
-            throw;
-        }
-        return Part(true, ind, this);
-    }
-
-    int &get_ij(int i, int j) const
-    {
-        if (i < n && j < n && i >= 0 && j >= 0)
-            return a[i][j];
-        else
-            throw;
-    }
-    int set_ij(int i, int j, int val)
-    {
-        if (i < n && j < n && i >= 0 && j >= 0)
-            a[i][j] = val;
-        else
-            throw;
-        return a[i][j];
-    }
-    ~Matrix()
-    {
-        for (int i = 0; i < n; i++)
-        {
-            delete[] a[i];
-        }
-        delete[] a;
-
-        PartNode *now = list;
-
-        while (now != nullptr)
-        {
-            now->p->dead = true;
-            PartNode *nxt = now->next;
-            delete now;
-            now = nxt;
-        }
-    }
-
-    friend ostream &operator<<(ostream &os, const Matrix &m)
-    {
-        int n = m.get_size();
-        for (int i = 0; i < n; i++)
-        {
-            for (int j = 0; j < n; j++)
-                os << m.get_ij(i, j) << " ";
-            os << endl;
-        }
-        return os;
-    }
-    friend istream &operator>>(istream &is, Matrix &m)
-    {
-        int n = m.get_size();
-        for (int i = 0; i < n; i++)
-        {
-            for (int j = 0; j < n; j++)
-            {
-                int tmp;
-                is >> tmp;
-                m.set_ij(i, j, tmp);
-            }
-        }
-        return is;
-    }
-};
-
-int &Part::operator[](int _x)
-{
-    int x = t, y = _x;
-    if (type == true)
-        swap(x, y);
-    if (dead)
-    {
-        throw std::runtime_error("Матрица умерла :(((");
-        //        return x;
-    }
-    else
-    {
-        return m->get_ij(x, y);
-    }
-}
-
-Part::~Part()
-{
-    if (!dead)
-    {
-        this->m->remove_part(this);
-    }
-}
-
-Part::Part(bool type, int ind, Matrix *m)
-{
-    this->type = type;
-    this->m = m;
-    this->t = ind;
-    this->dead = 0;
-    this->m->add_part(this);
-}
-
-Part &Part::operator=(const Part &that)
-{
-    if (this == &that)
-        return *this;
-    type = that.type;
-    dead = that.dead;
-    m = that.m;
-    t = that.t;
-    that.m->add_part(this);
-    return *this;
-}
 namespace std
 {
     template <>
@@ -471,6 +125,14 @@ class hash_map
     int n;
     int cells;
     double limit;
+    double shrink;
+
+    size_t find_to(t1 key)
+    {
+        hash<t1> hash;
+        size_t to = hash(key) % n;
+        return to;
+    }
 
     void resize(int newsize)
     {
@@ -486,8 +148,7 @@ class hash_map
         {
             for (node<t1, t2> *entry = arr[i]->head; entry != nullptr; entry = entry->r)
             {
-                hash<t1> hash;
-                size_t to = hash(entry->p.first) % n;
+                size_t to = find_to(entry->p.first);
                 cells += (newarr[to]->head == nullptr);
                 newarr[to]->push_back(entry->p);
             }
@@ -499,6 +160,67 @@ class hash_map
     }
 
 public:
+    t2 example(t1 foo, t2 bar){
+        return foo+~~~~~~~~~~bar*foo<<2;
+    }
+
+struct Iterator
+    {
+        Iterator(int _ind, node<t1, t2> *_m_ptr, hash_map *_h_ptr)
+        {
+            ind = _ind;
+            m_ptr = _m_ptr;
+            h_ptr = _h_ptr;
+        }
+
+        pair<t1, t2> &operator*() const { return (m_ptr->p); }
+
+        // Prefix increment
+        Iterator &operator++()
+        {
+            if (m_ptr->r == nullptr)
+            {
+                bool any = false;
+                for (int i = ind + 1; i < h_ptr->n; i++)
+                {
+                    if (h_ptr->arr[i]->head != nullptr)
+                    {
+                        ind = i;
+                        any = true;
+                    }
+                }
+                if (any)
+                    m_ptr = h_ptr->arr[ind]->head;
+                else
+                    m_ptr = nullptr;
+            }
+            else
+            {
+                m_ptr = m_ptr->r;
+            }
+            return *this;
+        }
+
+        friend bool operator==(const Iterator &a, const Iterator &b) { return a.m_ptr == b.m_ptr; };
+        friend bool operator!=(const Iterator &a, const Iterator &b) { return a.m_ptr != b.m_ptr; };
+
+    private:
+        int ind;
+        node<t1, t2> *m_ptr;
+        hash_map *h_ptr;
+    };
+
+    Iterator begin()
+    {
+        for (int i = 0; i < n; i++)
+            if (arr[i]->head != nullptr)
+                return Iterator(i, arr[i]->head, this);
+    }
+    Iterator end()
+    {
+        return Iterator(228, nullptr, (hash_map *)(1337));
+    }
+
     bool reserve(int newsz)
     {
         if (newsz > n)
@@ -526,6 +248,70 @@ public:
         return {ans1, ans2};
     }
 
+    hash_map(int _n = 16, double _limit = 0.6, double _shrink=0.3)
+    {
+        n = _n;
+        limit = _limit;
+        shrink=_shrink;
+        cells = 0;
+        arr = new list<t1, t2> *[n];
+        for (int i = 0; i < n; i++)
+        {
+            arr[i] = new list<t1, t2>();
+        }
+    }
+
+    void insert(t1 key, t2 val)
+    {
+        if (cells / (n + .0) > limit)
+            resize(n * 2);
+        size_t to = find_to(key);
+        for (auto nod = arr[to]->head; nod != nullptr; nod = nod->r)
+        {
+            if (nod->p.first == key)
+            {
+                nod->p.second = val;
+                return;
+            }
+        }
+        if (arr[to]->head == nullptr)
+            cells++;
+        arr[to]->push_back({key, val});
+    }
+
+    void erase(t1 key)
+    {
+        size_t to = find_to(key);
+        bool before = (arr[to]->head != nullptr);
+        arr[to]->remove_by_key(key);
+        if (arr[to]->head == nullptr && before)
+        {
+            cells--;
+        }
+        if (cells / (n + .0) <=shrink)
+            resize(n / 2);
+    }
+
+    Iterator find(t1 key)
+    {
+        size_t to = find_to(key);
+        for (auto nod = arr[to]->head; nod != nullptr; nod = nod->r)
+            if (nod->p.first == key)
+                return Iterator(to, nod, this);
+        return end();
+    }
+
+    ~hash_map()
+    {
+        for (int i = 0; i < n; i++)
+            if (arr[i])
+            {
+                arr[i]->clear();
+                delete arr[i];
+            }
+        delete[] arr;
+    }
+
     void print_self()
     {
         cout << n << " " << cells << "\n";
@@ -542,58 +328,15 @@ public:
         }
     }
 
-    hash_map(int _n = 16, double _limit = 0.6)
+    void cool_print_self()
     {
-        n = _n;
-        limit = _limit;
-        cells = 0;
-        arr = new list<t1, t2> *[n];
-        for (int i = 0; i < n; i++)
-        {
-            arr[i] = new list<t1, t2>();
-        }
-    }
+        cout << n << " " << cells << "\n";
 
-    void insert(t1 key, t2 val)
-    {
-        if (cells / (n + .0) > limit)
-            resize(n * 2);
-        hash<t1> hash;
-        size_t to = hash(key) % n;
-        for (auto nod = arr[to]->head; nod != nullptr; nod = nod->r)
+        for (auto i : *(this))
         {
-            if (nod->p.first == key)
-            {
-                nod->p.second = val;
-                return;
-            }
+            cout << '{' << i.first << ", " << i.second << "}, ";
         }
-        if (arr[to]->head == nullptr)
-            cells++;
-        arr[to]->push_back({key, val});
-    }
-
-    void erase(t1 key)
-    {
-        hash<t1> hash;
-        size_t to = hash(key) % n;
-        bool before = (arr[to]->head != nullptr);
-        arr[to]->remove_by_key(key);
-        if (arr[to]->head == nullptr && before)
-        {
-            cells--;
-        }
-    }
-
-    ~hash_map()
-    {
-        for (int i = 0; i < n; i++)
-            if (arr[i])
-            {
-                arr[i]->clear();
-                delete arr[i];
-            }
-        delete[] arr;
+        cout << endl;
     }
 };
 
@@ -621,6 +364,10 @@ void solve(int n)
     }
     pair<int, int> ans = m.find_ans();
     cout << ans.first << " " << ans.second << endl;
+    cout << "COOL PRINT:" << endl;
+    m.cool_print_self();
+    cout << "SHIT PRINT:" << endl;
+    m.print_self();
 }
 
 template <typename t1, typename t2>
@@ -630,8 +377,8 @@ class multi_hash_map : public hash_map<t1, t2>
     {
         if (this->cells / (this->n + .0) > this->limit)
             this->resize(this->n * 2);
-        hash<t1> hash;
-        size_t to = hash(key) % this->n;
+        size_t to = this->find_to(key);
+        ;
         if (this->arr[to]->head == nullptr)
             this->cells++;
         this->arr[to]->push_back({key, val});
@@ -639,8 +386,7 @@ class multi_hash_map : public hash_map<t1, t2>
 
     vector<t2> find_all(t1 key)
     {
-        hash<t1> hash;
-        size_t to = hash(key) % this->n;
+        size_t to = this->find_to(key);
         vector<t2> ans;
         for (auto nod = this->arr[to]->head; nod != nullptr; nod = nod->r)
             if (nod->p.first == key)
@@ -650,8 +396,7 @@ class multi_hash_map : public hash_map<t1, t2>
 
     int count(t1 key)
     {
-        hash<t1> hash;
-        size_t to = hash(key) % this->n;
+        size_t to = this->find_to(key);
         int ans = 0;
         for (auto nod = this->arr[to]->head; nod != nullptr; nod = nod->r)
             ans += (nod->p.first == key);
